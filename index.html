@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8" />
+  <title>Vibe Meeting Assistant</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    .scrollbar::-webkit-scrollbar { width: 6px; }
+    .scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.15);
+      border-radius: 10px;
+    }
+  </style>
+</head>
+
+<body class="min-h-screen bg-slate-950 text-slate-50 flex justify-center p-6">
+  <div class="w-full max-w-7xl bg-slate-900/70 border border-slate-800 rounded-2xl shadow-xl p-6 space-y-6">
+
+    <!-- HEADER -->
+    <header class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold">Vibe Meeting Assistant</h1>
+        <p class="text-sm text-slate-400">Toplantıyı analiz et, aksiyonları çıkar, mail taslağını al.</p>
+      </div>
+      <span class="text-xs px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-300 border border-emerald-500/30">
+        Made with vibe coding
+      </span>
+    </header>
+
+    <!-- GRID -->
+    <div class="grid gap-6 lg:grid-cols-[340px,minmax(0,1fr)]">
+
+      <!-- LEFT SIDEBAR (HISTORY) -->
+      <aside class="space-y-3">
+        <div class="flex items-center justify-between">
+          <h2 class="text-sm font-semibold text-slate-200">Geçmiş Toplantılar</h2>
+          <button id="clearHistoryBtn"
+            class="text-[10px] px-2 py-1 rounded-lg border border-slate-600 hover:border-rose-400 hover:text-rose-300 transition">
+            Temizle
+          </button>
+        </div>
+
+        <!-- Search + Filters -->
+        <div class="flex gap-2">
+          <input id="historySearch" placeholder="Ara..." 
+            class="flex-1 text-xs rounded-lg bg-slate-950/60 border border-slate-700 px-2 py-1" />
+          <select id="historyDateFilter"
+            class="text-xs rounded-lg bg-slate-950/60 border border-slate-700 px-2 py-1">
+            <option value="all">Tümü</option>
+            <option value="today">Bugün</option>
+            <option value="7d">Son 7 gün</option>
+            <option value="30d">Son 30 gün</option>
+          </select>
+        </div>
+
+        <div id="historyList"
+          class="max-h-[600px] overflow-y-auto scrollbar bg-slate-950/40 border border-slate-800 rounded-xl p-2 space-y-2 text-xs"></div>
+      </aside>
+
+      <!-- RIGHT MAIN AREA -->
+      <main class="space-y-4">
+
+        <!-- INPUT PANELS -->
+        <div class="grid md:grid-cols-2 gap-4">
+
+          <div class="space-y-3">
+            
+            <div>
+              <label class="text-sm font-medium text-slate-200">Toplantı Başlığı</label>
+              <input id="titleInput"
+                class="w-full rounded-xl bg-slate-950/60 border border-slate-700 px-3 py-2 text-sm" />
+            </div>
+
+            <div>
+              <!-- TRANSCRIPT UPLOAD -->
+<div class="mb-3 space-y-2">
+  <label class="text-sm font-medium text-slate-200">Transcript Yükle</label>
+  <div class="flex items-center gap-3">
+    <input id="transcriptFileInput" type="file" accept=".txt,.vtt,.srt,.pdf,.docx"
+      class="block text-xs text-slate-300 file:px-3 file:py-1 file:rounded-lg 
+             file:border file:border-slate-600 file:bg-slate-800 file:text-slate-200
+             hover:file:border-emerald-400 hover:file:text-emerald-300 transition cursor-pointer" />
+    <button id="processTranscriptBtn"
+      class="px-3 py-2 text-xs rounded-lg bg-emerald-600 text-slate-900 font-semibold hover:bg-emerald-500 transition">
+      Transcript’i İşle
+    </button>
+  </div>
+  <p id="selectedTranscriptName" class="text-[11px] text-slate-400 italic">Henüz dosya seçilmedi.</p>
+  <p class="text-[11px] text-slate-500">Desteklenen formatlar: <b>.vtt</b>, <b>.txt</b>, <b>.srt</b>, <b>.pdf</b>, <b>.docx</b></p>
+  <div id="transcriptStatus"
+    class="hidden text-xs mt-1 px-2 py-1 rounded bg-slate-800 border border-slate-700 text-emerald-300"></div>
+</div>
+
+<label class="text-sm font-medium text-slate-200">Toplantı Notları</label>
+              <textarea id="notesInput"
+                class="w-full h-56 rounded-xl bg-slate-950/60 border border-slate-700 px-3 py-2 text-sm resize-none"
+                placeholder="- Ajanda
+- Katılımcılar
+- Kararlar
+- Aksiyonlar..."></textarea>
+            </div>
+
+            <div class="flex gap-2">
+              <button id="analyzeBtn" class="text-sm px-4 py-2 rounded-xl bg-emerald-500 text-slate-900">
+                Çözümle <span id="loadingDot" class="hidden animate-pulse">•</span>
+              </button>
+
+              <button id="sendToJiraBtn"
+                class="text-xs px-3 py-2 rounded-xl bg-sky-500 text-slate-900">Aksiyonları Jira’ya Gönder</button>
+            </div>
+          </div>
+
+          <!-- OUTPUT -->
+          <div class="space-y-3">
+            <div>
+              <h2 class="text-sm font-semibold">Özet</h2>
+              <div id="summaryBox"
+                class="min-h-[80px] bg-slate-950/60 border border-slate-800 rounded-xl p-3 text-sm">
+                Henüz özet yok.
+              </div>
+            </div>
+
+            <div>
+              <h2 class="text-sm font-semibold">Aksiyon Maddeleri</h2>
+              <ul id="actionsList"
+                class="min-h-[80px] bg-slate-950/60 border border-slate-800 rounded-xl p-3 space-y-1 text-sm">
+                <li class="text-slate-500">Henüz aksiyon yok.</li>
+              </ul>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- JIRA SECTION -->
+        <div class="space-y-3 p-4 border border-slate-800 rounded-xl bg-slate-950/40">
+
+          <h2 class="text-sm font-semibold text-slate-200 mb-2">Jira Ayarları</h2>
+
+          <div class="grid grid-cols-3 gap-3">
+
+            <!-- Issue Type -->
+            <div>
+              <label class="text-xs text-slate-400">Issue Type</label>
+              <select id="jiraIssueType"
+                class="w-full text-xs px-2 py-2 rounded-lg bg-slate-900 border border-slate-700">
+                <option value="Task">Task</option>
+                <option value="Story">Story</option>
+                <option value="Bug">Bug</option>
+                <option value="Epic">Epic</option>
+              </select>
+            </div>
+
+            <!-- Assignee (UPDATED WITH YOUR ACCOUNT ID) -->
+            <div>
+              <label class="text-xs text-slate-400">Assignee</label>
+              <select id="jiraAssignee"
+                class="w-full text-xs px-2 py-2 rounded-lg bg-slate-900 border border-slate-700">
+                <option value="">None</option>
+                <option value="63e1f3b6c3eb74ad8e990679">Mete (sen)</option>
+              </select>
+            </div>
+
+            <!-- Labels -->
+            <div>
+              <label class="text-xs text-slate-400">Ek Label</label>
+              <input id="jiraLabelInput" placeholder="opsiyonel"
+                class="w-full text-xs px-2 py-2 rounded-lg bg-slate-900 border border-slate-700" />
+            </div>
+
+          </div>
+
+          <div id="jiraResult"
+            class="hidden bg-slate-900/70 mt-3 border border-slate-700 rounded-xl p-3 text-xs space-y-1"></div>
+
+        </div>
+
+        <!-- MAIL + EXPORT -->
+        <div class="grid md:grid-cols-2 gap-4">
+          <div>
+            <div class="flex justify-between">
+              <h2 class="text-sm font-semibold">Mail Taslağı</h2>
+              <button id="copyMailBtn"
+                class="text-xs px-3 py-1 rounded-lg border border-slate-600">Kopyala</button>
+            </div>
+            <textarea id="mailBox"
+              class="w-full h-40 bg-slate-950/60 border border-slate-800 rounded-xl px-3 py-2 text-sm"
+              readonly></textarea>
+          </div>
+
+          <div>
+            <button id="exportBtn"
+              class="w-full text-xs px-3 py-2 rounded-xl border border-slate-600">JSON Olarak Dışa Aktar</button>
+            <pre id="jsonOutput"
+              class="hidden mt-2 text-[11px] bg-black/60 border border-slate-800 rounded-xl p-3 max-h-40 overflow-auto"></pre>
+          </div>
+        </div>
+        <script>
+          // ===============================
+          // GLOBAL VARIABLES
+          // ===============================
+          const HISTORY_KEY = "vibe_meetings_v1";
+          let historyItems = [];
+          let lastResult = null;
+          
+          // Elements
+          const titleInput = document.getElementById("titleInput");
+          const notesInput = document.getElementById("notesInput");
+          const summaryBox = document.getElementById("summaryBox");
+          const actionsList = document.getElementById("actionsList");
+          const mailBox = document.getElementById("mailBox");
+          
+          const analyzeBtn = document.getElementById("analyzeBtn");
+          const loadingDot = document.getElementById("loadingDot");
+          const sendToJiraBtn = document.getElementById("sendToJiraBtn");
+          
+          const jiraIssueType = document.getElementById("jiraIssueType");
+          const jiraAssignee = document.getElementById("jiraAssignee");
+          const jiraLabelInput = document.getElementById("jiraLabelInput");
+          const jiraResult = document.getElementById("jiraResult");
+          
+          
+          // ===============================
+          // HISTORY FUNCTIONS
+          // ===============================
+          function loadHistory() {
+            try {
+              const raw = localStorage.getItem(HISTORY_KEY);
+              historyItems = raw ? JSON.parse(raw) : [];
+            } catch {
+              historyItems = [];
+            }
+          }
+          
+          function saveHistory() {
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(historyItems));
+          }
+          
+          function renderHistory(list = historyItems) {
+            const box = document.getElementById("historyList");
+            box.innerHTML = "";
+          
+            if (!list.length) {
+              box.innerHTML = "<div class='text-slate-500 text-xs'>Henüz kayıtlı toplantı yok.</div>";
+              return;
+            }
+          
+            list
+              .slice()
+              .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+              .forEach(item => {
+                const div = document.createElement("button");
+                div.className =
+                  "w-full text-left bg-slate-900/70 border border-slate-800 rounded-lg px-3 py-2 hover:border-emerald-400 transition";
+          
+                const dateStr = new Date(item.createdAt).toLocaleString("tr-TR");
+          
+                div.innerHTML = `
+                  <div class="flex justify-between">
+                    <span class="text-xs font-semibold">${item.title}</span>
+                    <span class="text-[10px] text-slate-500">${dateStr}</span>
+                  </div>
+                  <div class="text-[11px] text-slate-400 line-clamp-2">${item.summary}</div>
+                `;
+          
+                div.onclick = () => {
+                  titleInput.value = item.title;
+                  notesInput.value = item.notes;
+                  summaryBox.textContent = item.summary;
+          
+                  actionsList.innerHTML = "";
+                  item.actions.forEach(a => {
+                    const li = document.createElement("li");
+                    li.textContent = "• " + a;
+                    actionsList.appendChild(li);
+                  });
+          
+                  mailBox.value = item.emailDraft;
+                  lastResult = item;
+                };
+          
+                box.appendChild(div);
+              });
+          }
+          
+          function applyHistoryFilters() {
+            const q = document.getElementById("historySearch").value.toLowerCase();
+            const filter = document.getElementById("historyDateFilter").value;
+            const now = Date.now();
+          
+            const filtered = historyItems.filter(item => {
+              const created = new Date(item.createdAt).getTime();
+          
+              if (filter === "today") {
+                const d = new Date(item.createdAt);
+                const t = new Date();
+                if (
+                  d.getDate() !== t.getDate() ||
+                  d.getMonth() !== t.getMonth() ||
+                  d.getFullYear() !== t.getFullYear()
+                ) return false;
+              }
+          
+              if (filter === "7d" && now - created > 7 * 86400000) return false;
+              if (filter === "30d" && now - created > 30 * 86400000) return false;
+          
+              const blob = `${item.title} ${item.summary} ${item.notes} ${item.actions.join(" ")}`.toLowerCase();
+              return blob.includes(q);
+            });
+          
+            renderHistory(filtered);
+          }
+          
+          // ===============================
+          // BACKEND CALL — ANALYZE
+          // ===============================
+          async function callBackend(title, notes) {
+            const res = await fetch("http://localhost:3000/api/analyze", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ title, notes })
+            });
+          
+            if (!res.ok) throw new Error("Backend error: " + res.status);
+          
+            return await res.json();
+          }
+          
+          // ===============================
+          // ANALYZE BUTTON
+          // ===============================
+          analyzeBtn.onclick = async () => {
+            const title = titleInput.value.trim() || "Başlıksız toplantı";
+            const notes = notesInput.value.trim();
+          
+            if (!notes) {
+              alert("Toplantı notları boş olamaz.");
+              return;
+            }
+          
+            loadingDot.classList.remove("hidden");
+            summaryBox.textContent = "Analiz ediliyor...";
+            actionsList.innerHTML = "<li class='text-slate-500'>Aksiyonlar çıkarılıyor...</li>";
+            mailBox.value = "";
+          
+            try {
+              const result = await callBackend(title, notes);
+              lastResult = result;
+          
+              // Summary update
+              summaryBox.textContent = result.summary;
+          
+              // Actions update
+              actionsList.innerHTML = "";
+              result.actions.forEach(a => {
+                const li = document.createElement("li");
+                li.textContent = "• " + a;
+                actionsList.appendChild(li);
+              });
+          
+              // Mail draft
+              mailBox.value = result.emailDraft;
+          
+              // Save history
+              historyItems.push({
+                id: Date.now(),
+                title,
+                notes,
+                summary: result.summary,
+                actions: result.actions,
+                emailDraft: result.emailDraft,
+                createdAt: new Date().toISOString()
+              });
+          
+              saveHistory();
+              renderHistory();
+          
+            } catch (err) {
+              alert("Hata: " + err.message);
+            } finally {
+              loadingDot.classList.add("hidden");
+            }
+          };
+          
+          // ===============================
+          // COPY MAIL
+          // ===============================
+          document.getElementById("copyMailBtn").onclick = async () => {
+            await navigator.clipboard.writeText(mailBox.value);
+            alert("Mail kopyalandı.");
+          };
+          
+          // ===============================
+          // JSON EXPORT
+          // ===============================
+          document.getElementById("exportBtn").onclick = () => {
+            if (!lastResult) return alert("JSON için analiz yapmalısın.");
+          
+            const blob = new Blob([JSON.stringify(lastResult, null, 2)], {
+              type: "application/json"
+            });
+          
+            const url = URL.createObjectURL(blob);
+          
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = "meeting-summary.json";
+            a.click();
+          };
+// ===============================
+// JIRA INTEGRATION — ASSIGNEE FIX APPLIED
+// ===============================
+sendToJiraBtn.onclick = async () => {
+
+if (!lastResult?.actions?.length) {
+  alert("Önce toplantıyı analiz etmelisin.");
+  return;
+}
+
+const issueType = jiraIssueType.value;
+const assigneeId = jiraAssignee.value || null;   // <-- PATCH: gerçek Jira accountId gidiyor
+const userLabel = jiraLabelInput.value.trim();
+
+const labels = ["vibe-auto-generated"];
+if (userLabel) labels.push(userLabel);
+
+sendToJiraBtn.textContent = "Gönderiliyor...";
+sendToJiraBtn.disabled = true;
+
+const res = await fetch("http://localhost:3000/api/jira/create-tasks", {
+  method: "POST",
+  headers: {"Content-Type": "application/json"},
+  body: JSON.stringify({
+    title: titleInput.value.trim(),
+    actions: lastResult.actions,
+    issueType,
+    assigneeId,   // <-- PATCH: backend'e bu gidiyor
+    labels
+  })
+});
+
+const data = await res.json();
+
+sendToJiraBtn.textContent = "Aksiyonları Jira’ya Gönder";
+sendToJiraBtn.disabled = false;
+
+if (!data.ok) {
+  alert("Jira hatası: " + data.error);
+  return;
+}
+
+// SUCCESS UI OUTPUT
+jiraResult.classList.remove("hidden");
+jiraResult.innerHTML = data.items
+  .map(i => 
+    `<div>
+      ✔️ <a href="${i.url}" target="_blank" class="text-emerald-400">${i.key}</a>
+      — ${i.summary}
+    </div>`
+  )
+  .join("");
+};
+
+// ===============================
+// INIT
+// ===============================
+loadHistory();
+renderHistory();
+
+document.getElementById("historySearch").oninput = applyHistoryFilters;
+document.getElementById("historyDateFilter").onchange = applyHistoryFilters;
+
+document.getElementById("clearHistoryBtn").onclick = () => {
+if (confirm("Tüm kayıtları silmek istiyor musun?")) {
+  historyItems = [];
+  saveHistory();
+  renderHistory();
+}
+};
+
+</script>
+</body>
+</html>
+        
